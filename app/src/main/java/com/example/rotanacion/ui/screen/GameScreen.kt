@@ -2,6 +2,7 @@ package com.example.rotanacion.ui.screen
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -111,12 +113,12 @@ fun GameScreen(engine: GameEngine) {
                         currentDeckEmpty = deck.isEmpty()
 
                         when {
-                            // Si hay cartas en bancas → mostrar diálogo de intercambio (con o sin Cancelar)
+                            // Si hay cartas en bancas → mostrar diálogo de intercambio
                             exchanges.isNotEmpty() -> {
                                 availableExchanges = exchanges
                                 showExchangeDialog = true
                             }
-                            // Si no hay bancas de ese tipo → toma del mazo si hay, si no pasa turno
+                            // Si no hay bancas de ese tipo → tomar del mazo o pasar turno
                             else -> {
                                 if (deck.isNotEmpty()) {
                                     drawnCard = engine.drawFromDeck(selectedType)
@@ -303,33 +305,76 @@ fun GameScreen(engine: GameEngine) {
                         color = if (isCurrent) Color(0xFF512DA8) else Color.Black
                     )
                     Spacer(modifier = Modifier.height(6.dp))
+
+                    // ✅ Bancas con scroll horizontal e indicador visual
                     if (banca.isEmpty()) {
                         Text("Sin cartas en banca", fontSize = 14.sp, color = Color.Gray)
                     } else {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            banca.forEach { card ->
-                                Card(
-                                    modifier = Modifier
-                                        .width(80.dp)
-                                        .height(120.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEDE7F6))
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Center,
-                                        modifier = Modifier.padding(4.dp)
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            val scrollStateBanca = rememberScrollState()
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(scrollStateBanca)
+                            ) {
+                                banca.forEach { card ->
+                                    Card(
+                                        modifier = Modifier
+                                            .width(80.dp)
+                                            .height(120.dp),
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEDE7F6))
                                     ) {
-                                        Image(
-                                            painter = painterResource(id = card.imageRes),
-                                            contentDescription = card.type.name,
-                                            modifier = Modifier.size(60.dp)
-                                        )
-                                        Text(card.type.name, fontSize = 12.sp)
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center,
+                                            modifier = Modifier.padding(4.dp)
+                                        ) {
+                                            Image(
+                                                painter = painterResource(id = card.imageRes),
+                                                contentDescription = card.type.name,
+                                                modifier = Modifier.size(60.dp)
+                                            )
+                                            Text(card.type.name, fontSize = 12.sp)
+                                        }
                                     }
                                 }
+                            }
+
+                            // 🔸 Degradado visual izquierdo
+                            if (scrollStateBanca.value > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(
+                                            brush = Brush.horizontalGradient(
+                                                listOf(
+                                                    Color(0x22000000),
+                                                    Color.Transparent
+                                                ),
+                                                startX = 0f,
+                                                endX = 80f
+                                            )
+                                        )
+                                )
+                            }
+
+                            // 🔸 Degradado visual derecho
+                            if (scrollStateBanca.value < scrollStateBanca.maxValue) {
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(
+                                            brush = Brush.horizontalGradient(
+                                                listOf(
+                                                    Color.Transparent,
+                                                    Color(0x22000000)
+                                                ),
+                                                startX = 600f,
+                                                endX = Float.POSITIVE_INFINITY
+                                            )
+                                        )
+                                )
                             }
                         }
                     }
@@ -417,7 +462,7 @@ fun GameScreen(engine: GameEngine) {
             val currentCard = t?.let { currentPlayer.hand[it] }
 
             AlertDialog(
-                onDismissRequest = { /* no se cierra tocando afuera */ },
+                onDismissRequest = { /* no cerrar tocando afuera */ },
                 title = { Text("Opción de intercambio") },
                 text = {
                     Column {
@@ -488,15 +533,12 @@ fun GameScreen(engine: GameEngine) {
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7E57C2))
                     ) { Text("Intercambiar") }
                 },
-                // Si el mazo NO está vacío, también permitimos "Tomar del mazo"
-                // Si el mazo está vacío, mostramos "Cancelar" que pasa turno.
                 dismissButton = {
                     if (!currentDeckEmpty) {
                         TextButton(onClick = {
                             exchangeType?.let { type ->
                                 drawnCard = engine.drawFromDeck(type)
                             }
-                            // no pasar turno aquí; el jugador decide incluir/dejar
                             showExchangeDialog = false
                             selectedExchange = null
                         }) { Text("Tomar del mazo") }
@@ -524,6 +566,7 @@ fun GameScreen(engine: GameEngine) {
 private fun resetStates(onReset: () -> Unit) {
     onReset()
 }
+
 
 
 
