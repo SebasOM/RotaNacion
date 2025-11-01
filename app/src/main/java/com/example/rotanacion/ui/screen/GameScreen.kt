@@ -31,6 +31,8 @@ fun GameScreen(engine: GameEngine) {
     var showExchangeDialog by remember { mutableStateOf(false) }
     var availableExchanges by remember { mutableStateOf<List<Triple<Player, Card, Int>>>(emptyList()) }
     var selectedExchange by remember { mutableStateOf<Triple<Player, Card, Int>?>(null) }
+    var currentDeckEmpty by remember { mutableStateOf(false) }
+    var exchangeType by remember { mutableStateOf<CardType?>(null) }
 
     val currentPlayer = engine.currentPlayer
     val scrollState = rememberScrollState()
@@ -67,6 +69,7 @@ fun GameScreen(engine: GameEngine) {
                     canDrawCard = actionDiceResult == "TOMA"
                     drawnCard = null
                     selectedCardType = null
+                    selectedExchange = null
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7E57C2))
             ) { Text("Lanzar", color = Color.White) }
@@ -97,6 +100,7 @@ fun GameScreen(engine: GameEngine) {
                     }
 
                     type?.let { selectedType ->
+                        exchangeType = selectedType
                         val exchanges = engine.getAvailableBankCards(selectedType)
                         val deck = when (selectedType) {
                             CardType.PAIS -> engine.deckPais
@@ -104,35 +108,29 @@ fun GameScreen(engine: GameEngine) {
                             CardType.MONUMENTO -> engine.deckMonumento
                         }
 
-                        when {
-                            // 🟣 1️⃣ Si el mazo está vacío pero hay bancas disponibles → intercambio
-                            deck.isEmpty() && exchanges.isNotEmpty() -> {
-                                availableExchanges = exchanges
-                                showExchangeDialog = true
-                            }
+                        currentDeckEmpty = deck.isEmpty()
 
-                            // 🔵 2️⃣ Si hay cartas en banca → mostrar intercambio siempre
+                        when {
+                            // Si hay cartas en bancas → mostrar diálogo de intercambio (con o sin Cancelar)
                             exchanges.isNotEmpty() -> {
                                 availableExchanges = exchanges
                                 showExchangeDialog = true
                             }
-
-                            // 🟢 3️⃣ Si no hay cartas en bancas → tomar del mazo (si hay)
+                            // Si no hay bancas de ese tipo → toma del mazo si hay, si no pasa turno
                             else -> {
                                 if (deck.isNotEmpty()) {
                                     drawnCard = engine.drawFromDeck(selectedType)
                                 } else {
-                                    // Si el mazo también está vacío y no hay bancas → pasar turno
                                     engine.nextTurn()
-                                    resetStates(
-                                        onReset = {
-                                            actionDiceResult = ""
-                                            cardDiceResult = 0
-                                            canDrawCard = false
-                                            selectedCardType = null
-                                            drawnCard = null
-                                        }
-                                    )
+                                    resetStates {
+                                        actionDiceResult = ""
+                                        cardDiceResult = 0
+                                        canDrawCard = false
+                                        selectedCardType = null
+                                        drawnCard = null
+                                        selectedExchange = null
+                                        exchangeType = null
+                                    }
                                 }
                             }
                         }
@@ -195,6 +193,8 @@ fun GameScreen(engine: GameEngine) {
                                 canDrawCard = false
                                 selectedCardType = null
                                 drawnCard = null
+                                selectedExchange = null
+                                exchangeType = null
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
@@ -210,6 +210,8 @@ fun GameScreen(engine: GameEngine) {
                                 canDrawCard = false
                                 selectedCardType = null
                                 drawnCard = null
+                                selectedExchange = null
+                                exchangeType = null
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336))
@@ -390,6 +392,8 @@ fun GameScreen(engine: GameEngine) {
                         canDrawCard = false
                         selectedCardType = null
                         drawnCard = null
+                        selectedExchange = null
+                        exchangeType = null
                     }
                 }
             },
@@ -409,11 +413,11 @@ fun GameScreen(engine: GameEngine) {
 
         // ---------- Diálogo de intercambio ----------
         if (showExchangeDialog) {
-            val exchangeType = availableExchanges.firstOrNull()?.second?.type
-            val currentCard = exchangeType?.let { currentPlayer.hand[it] }
+            val t = exchangeType
+            val currentCard = t?.let { currentPlayer.hand[it] }
 
             AlertDialog(
-                onDismissRequest = { showExchangeDialog = false },
+                onDismissRequest = { /* no se cierra tocando afuera */ },
                 title = { Text("Opción de intercambio") },
                 text = {
                     Column {
@@ -433,7 +437,7 @@ fun GameScreen(engine: GameEngine) {
                         Text("Selecciona una carta de las bancas:")
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        availableExchanges.forEach { (player, card, _) ->
+                        availableExchanges.forEach { (player, card, idx) ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
@@ -456,7 +460,7 @@ fun GameScreen(engine: GameEngine) {
                                 Spacer(modifier = Modifier.weight(1f))
                                 RadioButton(
                                     selected = selectedExchange?.second == card,
-                                    onClick = { selectedExchange = Triple(player, card, 0) }
+                                    onClick = { selectedExchange = Triple(player, card, idx) }
                                 )
                             }
                         }
@@ -477,25 +481,40 @@ fun GameScreen(engine: GameEngine) {
                                 selectedCardType = null
                                 drawnCard = null
                                 selectedExchange = null
+                                exchangeType = null
                             }
                         },
                         enabled = selectedExchange != null,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7E57C2))
                     ) { Text("Intercambiar") }
                 },
+                // Si el mazo NO está vacío, también permitimos "Tomar del mazo"
+                // Si el mazo está vacío, mostramos "Cancelar" que pasa turno.
                 dismissButton = {
-                    Button(onClick = {
-                        showExchangeDialog = false
-                        engine.nextTurn()
-                        resetStates {
-                            actionDiceResult = ""
-                            cardDiceResult = 0
-                            canDrawCard = false
-                            selectedCardType = null
-                            drawnCard = null
+                    if (!currentDeckEmpty) {
+                        TextButton(onClick = {
+                            exchangeType?.let { type ->
+                                drawnCard = engine.drawFromDeck(type)
+                            }
+                            // no pasar turno aquí; el jugador decide incluir/dejar
+                            showExchangeDialog = false
                             selectedExchange = null
-                        }
-                    }) { Text("Cancelar") }
+                        }) { Text("Tomar del mazo") }
+                    } else {
+                        TextButton(onClick = {
+                            showExchangeDialog = false
+                            engine.nextTurn()
+                            resetStates {
+                                actionDiceResult = ""
+                                cardDiceResult = 0
+                                canDrawCard = false
+                                selectedCardType = null
+                                drawnCard = null
+                                selectedExchange = null
+                                exchangeType = null
+                            }
+                        }) { Text("Cancelar") }
+                    }
                 }
             )
         }
@@ -505,6 +524,8 @@ fun GameScreen(engine: GameEngine) {
 private fun resetStates(onReset: () -> Unit) {
     onReset()
 }
+
+
 
 
 

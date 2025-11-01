@@ -112,19 +112,23 @@ class GameEngine(playersInit: List<Player>) {
         val type = cardFromBank.type
         val currentCard = currentPlayer.hand[type] ?: return
 
-        // Buscar la carta en la banca del otro jugador
-        val banca = bankas[otherPlayer.id] ?: return
-        val cardIndex = banca.indexOf(cardFromBank)
+        val bancaOtro = bankas[otherPlayer.id] ?: return
+        val cardIndex = bancaOtro.indexOf(cardFromBank)
         if (cardIndex != -1) {
             // Quitar carta de la banca del otro jugador
-            banca.removeAt(cardIndex)
-            // Poner la carta actual del jugador en su propia banca
-            placeInBank(currentPlayer, currentCard)
-            // Reemplazar carta en la mano del jugador
+            bancaOtro.removeAt(cardIndex)
+
+            // Reemplazar carta en la mano del jugador actual
             currentPlayer.hand[type] = cardFromBank
+
+            // ✅ Intercambio corregido:
+            // La carta del jugador actual ahora va a la banca del otro jugador,
+            // no a la suya propia, para reflejar un intercambio real y simétrico.
+            bankas[otherPlayer.id]?.add(currentCard)
         }
     }
 }
+
 
 
 
