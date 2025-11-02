@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -36,8 +35,26 @@ fun GameScreen(engine: GameEngine) {
     var currentDeckEmpty by remember { mutableStateOf(false) }
     var exchangeType by remember { mutableStateOf<CardType?>(null) }
 
+    // Estado de victoria
+    var winner by remember { mutableStateOf<Player?>(null) }
+    var showVictoryScreen by remember { mutableStateOf(false) }
+
     val currentPlayer = engine.currentPlayer
     val scrollState = rememberScrollState()
+
+    // ---------- Mostrar pantalla de victoria si hay ganador ----------
+    if (showVictoryScreen && winner != null) {
+        VictoryScreen(
+            winner = winner!!,
+            onRestart = {
+                engine.resetGame()
+                showVictoryScreen = false
+                winner = null
+            }
+        )
+
+        return
+    }
 
     // ---------- Contenedor principal ----------
     Box(modifier = Modifier.fillMaxSize()) {
@@ -118,6 +135,7 @@ fun GameScreen(engine: GameEngine) {
                                 availableExchanges = exchanges
                                 showExchangeDialog = true
                             }
+
                             // Si no hay bancas de ese tipo → tomar del mazo o pasar turno
                             else -> {
                                 if (deck.isNotEmpty()) {
@@ -188,6 +206,8 @@ fun GameScreen(engine: GameEngine) {
                     Button(
                         onClick = {
                             engine.replaceCardInHand(currentPlayer, card)
+                            winner = engine.checkVictory()
+                            if (winner != null) showVictoryScreen = true
                             engine.nextTurn()
                             resetStates {
                                 actionDiceResult = ""
@@ -205,6 +225,8 @@ fun GameScreen(engine: GameEngine) {
                     Button(
                         onClick = {
                             engine.placeInBank(currentPlayer, card)
+                            winner = engine.checkVictory()
+                            if (winner != null) showVictoryScreen = true
                             engine.nextTurn()
                             resetStates {
                                 actionDiceResult = ""
@@ -306,75 +328,35 @@ fun GameScreen(engine: GameEngine) {
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // ✅ Bancas con scroll horizontal e indicador visual
                     if (banca.isEmpty()) {
                         Text("Sin cartas en banca", fontSize = 14.sp, color = Color.Gray)
                     } else {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            val scrollStateBanca = rememberScrollState()
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(scrollStateBanca)
-                            ) {
-                                banca.forEach { card ->
-                                    Card(
-                                        modifier = Modifier
-                                            .width(80.dp)
-                                            .height(120.dp),
-                                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEDE7F6))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                        ) {
+                            banca.forEach { card ->
+                                Card(
+                                    modifier = Modifier
+                                        .width(80.dp)
+                                        .height(120.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEDE7F6))
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                        modifier = Modifier.padding(4.dp)
                                     ) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.Center,
-                                            modifier = Modifier.padding(4.dp)
-                                        ) {
-                                            Image(
-                                                painter = painterResource(id = card.imageRes),
-                                                contentDescription = card.type.name,
-                                                modifier = Modifier.size(60.dp)
-                                            )
-                                            Text(card.type.name, fontSize = 12.sp)
-                                        }
+                                        Image(
+                                            painter = painterResource(id = card.imageRes),
+                                            contentDescription = card.type.name,
+                                            modifier = Modifier.size(60.dp)
+                                        )
+                                        Text(card.type.name, fontSize = 12.sp)
                                     }
                                 }
-                            }
-
-                            // 🔸 Degradado visual izquierdo
-                            if (scrollStateBanca.value > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .background(
-                                            brush = Brush.horizontalGradient(
-                                                listOf(
-                                                    Color(0x22000000),
-                                                    Color.Transparent
-                                                ),
-                                                startX = 0f,
-                                                endX = 80f
-                                            )
-                                        )
-                                )
-                            }
-
-                            // 🔸 Degradado visual derecho
-                            if (scrollStateBanca.value < scrollStateBanca.maxValue) {
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .background(
-                                            brush = Brush.horizontalGradient(
-                                                listOf(
-                                                    Color.Transparent,
-                                                    Color(0x22000000)
-                                                ),
-                                                startX = 600f,
-                                                endX = Float.POSITIVE_INFINITY
-                                            )
-                                        )
-                                )
                             }
                         }
                     }
@@ -430,6 +412,8 @@ fun GameScreen(engine: GameEngine) {
             onClick = {
                 selectedCardType?.let { type ->
                     engine.rotateCards(type, actionDiceResult)
+                    winner = engine.checkVictory()
+                    if (winner != null) showVictoryScreen = true
                     engine.nextTurn()
                     resetStates {
                         actionDiceResult = ""
@@ -462,7 +446,7 @@ fun GameScreen(engine: GameEngine) {
             val currentCard = t?.let { currentPlayer.hand[it] }
 
             AlertDialog(
-                onDismissRequest = { /* no cerrar tocando afuera */ },
+                onDismissRequest = { },
                 title = { Text("Opción de intercambio") },
                 text = {
                     Column {
@@ -516,6 +500,8 @@ fun GameScreen(engine: GameEngine) {
                         onClick = {
                             selectedExchange?.let { (player, card, _) ->
                                 engine.exchangeWithBank(currentPlayer, player, card)
+                                winner = engine.checkVictory()
+                                if (winner != null) showVictoryScreen = true
                             }
                             showExchangeDialog = false
                             engine.nextTurn()
@@ -538,6 +524,8 @@ fun GameScreen(engine: GameEngine) {
                         TextButton(onClick = {
                             exchangeType?.let { type ->
                                 drawnCard = engine.drawFromDeck(type)
+                                winner = engine.checkVictory()
+                                if (winner != null) showVictoryScreen = true
                             }
                             showExchangeDialog = false
                             selectedExchange = null
@@ -566,6 +554,7 @@ fun GameScreen(engine: GameEngine) {
 private fun resetStates(onReset: () -> Unit) {
     onReset()
 }
+
 
 
 

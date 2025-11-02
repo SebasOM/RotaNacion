@@ -2,6 +2,7 @@ package com.example.rotanacion.model
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import com.example.rotanacion.R
 
 class GameEngine(playersInit: List<Player>) {
 
@@ -43,6 +44,9 @@ class GameEngine(playersInit: List<Player>) {
             bankas[player.id] = mutableListOf()
         }
 
+        deckPais.clear()
+        deckBandera.clear()
+        deckMonumento.clear()
         deckPais.addAll(paisCards)
         deckBandera.addAll(banderaCards)
         deckMonumento.addAll(monumentoCards)
@@ -64,6 +68,10 @@ class GameEngine(playersInit: List<Player>) {
                 newHand[type] = newCard
             }
             player.hand = newHand
+        }
+
+        checkVictory()?.let { winner ->
+            println("🎉 ¡${winner.name} ha ganado con ${winner.hand.values.first().nation}!")
         }
     }
 
@@ -91,6 +99,9 @@ class GameEngine(playersInit: List<Player>) {
             placeInBank(player, oldCard)
         }
         player.hand[type] = newCard
+        checkVictory()?.let { winner ->
+            println("🎉 ¡${winner.name} ha ganado con ${winner.hand.values.first().nation}!")
+        }
     }
 
     // ---------- Obtener cartas disponibles en las bancas para intercambio ----------
@@ -115,19 +126,93 @@ class GameEngine(playersInit: List<Player>) {
         val bancaOtro = bankas[otherPlayer.id] ?: return
         val cardIndex = bancaOtro.indexOf(cardFromBank)
         if (cardIndex != -1) {
-            // Quitar carta de la banca del otro jugador
             bancaOtro.removeAt(cardIndex)
-
-            // Reemplazar carta en la mano del jugador actual
             currentPlayer.hand[type] = cardFromBank
-
-            // ✅ Intercambio corregido:
-            // La carta del jugador actual ahora va a la banca del otro jugador,
-            // no a la suya propia, para reflejar un intercambio real y simétrico.
             bankas[otherPlayer.id]?.add(currentCard)
+            checkVictory()?.let { winner ->
+                println("🎉 ¡${winner.name} ha ganado con ${winner.hand.values.first().nation}!")
+            }
         }
     }
+
+    // ---------- Comprobar si hay un ganador ----------
+    fun checkVictory(): Player? {
+        for (player in players) {
+            val hand = player.hand.values
+            if (hand.size == 3) {
+                val firstNation = hand.first().nation
+                if (hand.all { it.nation == firstNation }) {
+                    return player
+                }
+            }
+        }
+        return null
+    }
+
+    // ---------- 🔁 Reiniciar juego ----------
+    fun resetGame() {
+        // 1️⃣ Limpiar manos y bancas
+        players.forEach { player ->
+            player.hand.clear()
+            bankas[player.id]?.clear()
+        }
+
+        // 2️⃣ Crear nuevas barajas
+        val paisCards = mutableListOf(
+            Card("Colombia", CardType.PAIS, R.drawable.pais_colombia),
+            Card("Brasil", CardType.PAIS, R.drawable.pais_brasil),
+            Card("USA", CardType.PAIS, R.drawable.pais_usa),
+            Card("Japón", CardType.PAIS, R.drawable.pais_japon),
+            Card("India", CardType.PAIS, R.drawable.pais_india),
+            Card("Jordania", CardType.PAIS, R.drawable.pais_jordania),
+            Card("Egipto", CardType.PAIS, R.drawable.pais_egipto),
+            Card("Sudáfrica", CardType.PAIS, R.drawable.pais_sudafrica),
+            Card("Argelia", CardType.PAIS, R.drawable.pais_argelia),
+            Card("Italia", CardType.PAIS, R.drawable.pais_italia),
+            Card("Francia", CardType.PAIS, R.drawable.pais_francia),
+            Card("Reino Unido", CardType.PAIS, R.drawable.pais_reino_unido)
+        )
+
+        val banderaCards = mutableListOf(
+            Card("Colombia", CardType.BANDERA, R.drawable.bandera_colombia),
+            Card("Brasil", CardType.BANDERA, R.drawable.bandera_brasil),
+            Card("USA", CardType.BANDERA, R.drawable.bandera_usa),
+            Card("Japón", CardType.BANDERA, R.drawable.bandera_japon),
+            Card("India", CardType.BANDERA, R.drawable.bandera_india),
+            Card("Jordania", CardType.BANDERA, R.drawable.bandera_jordania),
+            Card("Egipto", CardType.BANDERA, R.drawable.bandera_egipto),
+            Card("Sudáfrica", CardType.BANDERA, R.drawable.bandera_sudafrica),
+            Card("Argelia", CardType.BANDERA, R.drawable.bandera_argelia),
+            Card("Italia", CardType.BANDERA, R.drawable.bandera_italia),
+            Card("Francia", CardType.BANDERA, R.drawable.bandera_francia),
+            Card("Reino Unido", CardType.BANDERA, R.drawable.bandera_reino_unido)
+        )
+
+        val monumentoCards = mutableListOf(
+            Card("Colombia", CardType.MONUMENTO, R.drawable.monumento_colombia),
+            Card("Brasil", CardType.MONUMENTO, R.drawable.monumento_brasil),
+            Card("USA", CardType.MONUMENTO, R.drawable.monumento_usa),
+            Card("Japón", CardType.MONUMENTO, R.drawable.monumento_japon),
+            Card("India", CardType.MONUMENTO, R.drawable.monumento_india),
+            Card("Jordania", CardType.MONUMENTO, R.drawable.monumento_jordania),
+            Card("Egipto", CardType.MONUMENTO, R.drawable.monumento_egipto),
+            Card("Sudáfrica", CardType.MONUMENTO, R.drawable.monumento_sudafrica),
+            Card("Argelia", CardType.MONUMENTO, R.drawable.monumento_argelia),
+            Card("Italia", CardType.MONUMENTO, R.drawable.monumento_italia),
+            Card("Francia", CardType.MONUMENTO, R.drawable.monumento_francia),
+            Card("Reino Unido", CardType.MONUMENTO, R.drawable.monumento_reino_unido)
+        )
+
+        // 3️⃣ Repartir nuevas cartas
+        dealInitialCards(paisCards, banderaCards, monumentoCards)
+
+        // 4️⃣ Reiniciar turno
+        _currentPlayerIndex.value = 0
+    }
 }
+
+
+
 
 
 
