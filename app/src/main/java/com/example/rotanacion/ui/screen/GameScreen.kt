@@ -449,49 +449,106 @@ fun GameScreen(engine: GameEngine) {
                 onDismissRequest = { },
                 title = { Text("Opción de intercambio") },
                 text = {
-                    Column {
-                        Text("Tu carta actual de este tipo:")
-                        currentCard?.let {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Image(
-                                painter = painterResource(id = it.imageRes),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(90.dp)
-                                    .align(Alignment.CenterHorizontally)
-                            )
-                            Text("${it.nation} (${it.type})", fontSize = 14.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+                    // 🔹 Scroll + Fade dinámico
+                    val scrollState = rememberScrollState()
+                    val atTop by remember { derivedStateOf { scrollState.value == 0 } }
+                    val atBottom by remember {
+                        derivedStateOf {
+                            scrollState.value >= scrollState.maxValue - 5
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Selecciona una carta de las bancas:")
-                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
-                        availableExchanges.forEach { (player, card, idx) ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(4.dp)
-                                    .background(
-                                        if (selectedExchange?.second == card)
-                                            Color(0xFFD1C4E9) else Color.Transparent,
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .padding(8.dp)
-                            ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 500.dp)
+                    ) {
+                        // Contenido desplazable
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(scrollState)
+                                .padding(horizontal = 4.dp)
+                        ) {
+                            Text("Tu carta actual de este tipo:")
+                            currentCard?.let {
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Image(
-                                    painter = painterResource(id = card.imageRes),
+                                    painter = painterResource(id = it.imageRes),
                                     contentDescription = null,
-                                    modifier = Modifier.size(50.dp)
+                                    modifier = Modifier
+                                        .size(90.dp)
+                                        .align(Alignment.CenterHorizontally)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("${card.nation} (${card.type}) de ${player.name}")
-                                Spacer(modifier = Modifier.weight(1f))
-                                RadioButton(
-                                    selected = selectedExchange?.second == card,
-                                    onClick = { selectedExchange = Triple(player, card, idx) }
+                                Text(
+                                    "${it.nation} (${it.type})",
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
                                 )
                             }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Selecciona una carta de las bancas:")
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            availableExchanges.forEach { (player, card, idx) ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(4.dp)
+                                        .background(
+                                            if (selectedExchange?.second == card)
+                                                Color(0xFFD1C4E9)
+                                            else Color.Transparent,
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(8.dp)
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = card.imageRes),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(50.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("${card.nation} (${card.type}) de ${player.name}")
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    RadioButton(
+                                        selected = selectedExchange?.second == card,
+                                        onClick = { selectedExchange = Triple(player, card, idx) }
+                                    )
+                                }
+                            }
+                        }
+
+                        // 🔹 Fade superior
+                        if (!atTop) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(24.dp)
+                                    .align(Alignment.TopCenter)
+                                    .background(
+                                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                            colors = listOf(Color.White.copy(alpha = 0.9f), Color.Transparent)
+                                        )
+                                    )
+                            )
+                        }
+
+                        // 🔹 Fade inferior
+                        if (!atBottom) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(24.dp)
+                                    .align(Alignment.BottomCenter)
+                                    .background(
+                                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.9f))
+                                        )
+                                    )
+                            )
                         }
                     }
                 },
