@@ -50,11 +50,16 @@ fun GameScreen(engine: GameEngine) {
                 engine.resetGame()
                 showVictoryScreen = false
                 winner = null
+            },
+            onReturnToMenu = {
+                showVictoryScreen = false
+                winner = null
+                // 🔹 Aquí podríamos notificar al MainActivity que cambie de pantalla
             }
         )
-
         return
     }
+
 
     // ---------- Contenedor principal ----------
     Box(modifier = Modifier.fillMaxSize()) {
@@ -449,13 +454,11 @@ fun GameScreen(engine: GameEngine) {
                 onDismissRequest = { },
                 title = { Text("Opción de intercambio") },
                 text = {
-                    // 🔹 Scroll + Fade dinámico
-                    val scrollState = rememberScrollState()
-                    val atTop by remember { derivedStateOf { scrollState.value == 0 } }
+                    // Scroll + fades
+                    val dialogScroll = rememberScrollState()
+                    val atTop by remember { derivedStateOf { dialogScroll.value == 0 } }
                     val atBottom by remember {
-                        derivedStateOf {
-                            scrollState.value >= scrollState.maxValue - 5
-                        }
+                        derivedStateOf { dialogScroll.value >= dialogScroll.maxValue - 5 }
                     }
 
                     Box(
@@ -463,11 +466,10 @@ fun GameScreen(engine: GameEngine) {
                             .fillMaxWidth()
                             .heightIn(max = 500.dp)
                     ) {
-                        // Contenido desplazable
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .verticalScroll(scrollState)
+                                .verticalScroll(dialogScroll)
                                 .padding(horizontal = 4.dp)
                         ) {
                             Text("Tu carta actual de este tipo:")
@@ -521,7 +523,6 @@ fun GameScreen(engine: GameEngine) {
                             }
                         }
 
-                        // 🔹 Fade superior
                         if (!atTop) {
                             Box(
                                 modifier = Modifier
@@ -536,7 +537,6 @@ fun GameScreen(engine: GameEngine) {
                             )
                         }
 
-                        // 🔹 Fade inferior
                         if (!atBottom) {
                             Box(
                                 modifier = Modifier
@@ -608,9 +608,9 @@ fun GameScreen(engine: GameEngine) {
     }
 }
 
-private fun resetStates(onReset: () -> Unit) {
-    onReset()
-}
+private fun resetStates(onReset: () -> Unit) { onReset() }
+
+
 
 
 
