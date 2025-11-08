@@ -13,8 +13,10 @@ data class Card(
 data class Player(
     val id: Int,
     val name: String,
-    var hand: MutableMap<CardType, Card> = mutableMapOf() // mutable para actualizar
+    val isAI: Boolean = false, // 🔹 Nuevo campo: indica si el jugador es controlado por IA
+    var hand: MutableMap<CardType, Card> = mutableMapOf()
 )
+
 
 
 

@@ -16,17 +16,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
 
-            // 🔹 Control de navegación
-            var currentScreen by remember { mutableStateOf("menu") }
+            // Control de navegación entre pantallas
+            var currentScreen by remember { mutableStateOf("name") }
 
-            // 🔹 Crear jugadores y motor
-            val player1 = Player(1, "Ana")
-            val player2 = Player(2, "Luis")
-            val player3 = Player(3, "María")
+            // Nombre del jugador humano
+            var playerName by remember { mutableStateOf("") }
 
-            val engine = remember { GameEngine(listOf(player1, player2, player3)) }
+            // Motor del juego
+            var engine by remember { mutableStateOf<GameEngine?>(null) }
 
-            // 🔹 Transiciones entre pantallas (fade + slide)
             AnimatedContent(
                 targetState = currentScreen,
                 transitionSpec = {
@@ -38,21 +36,49 @@ class MainActivity : ComponentActivity() {
             ) { screen ->
                 when (screen) {
 
-                    // 🟣 Pantalla de menú principal
+                    // 🧍 Pantalla de nombre
+                    "name" -> NameScreen(
+                        onConfirm = { enteredName ->
+                            playerName = if (enteredName.isNotBlank()) enteredName else "Jugador"
+                            val player1 = Player(1, playerName, isAI = false)
+                            val player2 = Player(2, "Luis", isAI = true)
+                            val player3 = Player(3, "María", isAI = true)
+                            engine = GameEngine(listOf(player1, player2, player3))
+                            currentScreen = "menu"
+                        }
+                    )
+
+                    // 🟣 Menú principal
                     "menu" -> MainMenuScreen(
                         onStartGame = {
-                            engine.resetGame() // Reinicia mazos y manos
+                            if (engine == null) {
+                                val player1 = Player(1, playerName.ifBlank { "Jugador" }, isAI = false)
+                                val player2 = Player(2, "Luis", isAI = true)
+                                val player3 = Player(3, "María", isAI = true)
+                                engine = GameEngine(listOf(player1, player2, player3))
+                            }
+                            engine?.resetGame()
                             currentScreen = "game"
                         },
                         onShowRules = { currentScreen = "rules" },
                         onExit = { finish() }
                     )
 
-                    // 🕹️ Pantalla del juego con manejo del botón “Volver al menú”
-                    "game" -> GameScreenWithVictoryMenu(
-                        engine = engine,
-                        onReturnToMenu = { currentScreen = "menu" }
-                    )
+                    // 🕹️ Pantalla de juego
+                    "game" -> {
+                        if (engine == null) {
+                            val player1 = Player(1, playerName.ifBlank { "Jugador" }, isAI = false)
+                            val player2 = Player(2, "Luis", isAI = true)
+                            val player3 = Player(3, "María", isAI = true)
+                            engine = GameEngine(listOf(player1, player2, player3))
+                            engine!!.resetGame()
+                        }
+
+                        GameScreenWithVictoryMenu(
+                            engine = engine!!,
+                            onReturnToMenu = { currentScreen = "menu" }
+                        )
+                    }
 
                     // 📘 Pantalla de reglas
                     "rules" -> RulesScreen(
@@ -64,18 +90,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/* -------------------------------------------------------------
-   🔁 Funciones auxiliares para manejar el flujo entre
-   juego ↔ victoria ↔ menú principal
-   ------------------------------------------------------------- */
-
+/* --------------------------- 🏆 Flujo de victoria --------------------------- */
 @Composable
 fun GameScreenWithVictoryMenu(engine: GameEngine, onReturnToMenu: () -> Unit) {
-    var winner by remember { mutableStateOf<Player?>(null) }
+    var winner by remember { mutableStateOf<com.example.rotanacion.model.Player?>(null) }
     var showVictoryScreen by remember { mutableStateOf(false) }
 
     if (showVictoryScreen && winner != null) {
-        // 🏆 Mostrar pantalla de victoria
         VictoryScreen(
             winner = winner!!,
             onRestart = {
@@ -90,7 +111,6 @@ fun GameScreenWithVictoryMenu(engine: GameEngine, onReturnToMenu: () -> Unit) {
             }
         )
     } else {
-        // 🎮 Mostrar pantalla de juego normal
         GameScreenWithVictoryDetection(engine) { winnerFound ->
             winner = winnerFound
             showVictoryScreen = true
@@ -98,20 +118,16 @@ fun GameScreenWithVictoryMenu(engine: GameEngine, onReturnToMenu: () -> Unit) {
     }
 }
 
-/* -------------------------------------------------------------
-   🧩 GameScreen con callback para detectar la victoria y
-   notificar al flujo principal.
-   ------------------------------------------------------------- */
+/* ------------------------ 🧩 Detección de victoria ------------------------ */
 @Composable
 fun GameScreenWithVictoryDetection(
     engine: GameEngine,
-    onVictoryDetected: (Player) -> Unit
+    onVictoryDetected: (com.example.rotanacion.model.Player) -> Unit
 ) {
-    var localWinner by remember { mutableStateOf<Player?>(null) }
+    var localWinner by remember { mutableStateOf<com.example.rotanacion.model.Player?>(null) }
 
     GameScreen(engine = engine)
 
-    // Si detecta un ganador desde GameEngine
     LaunchedEffect(engine.currentPlayer) {
         val winner = engine.checkVictory()
         if (winner != null && winner != localWinner) {
@@ -120,6 +136,7 @@ fun GameScreenWithVictoryDetection(
         }
     }
 }
+
 
 
 
