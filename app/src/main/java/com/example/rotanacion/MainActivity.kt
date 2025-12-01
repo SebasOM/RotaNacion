@@ -3,139 +3,76 @@ package com.example.rotanacion
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.activity.viewModels
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
-import com.example.rotanacion.model.GameEngine
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.rotanacion.model.Player
 import com.example.rotanacion.ui.screen.*
+import com.example.rotanacion.viewmodel.GameViewModel
 
-@OptIn(ExperimentalAnimationApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-
-            // Control de navegación entre pantallas
-            var currentScreen by remember { mutableStateOf("name") }
-
-            // Nombre del jugador humano
-            var playerName by remember { mutableStateOf("") }
-
-            // Motor del juego
-            var engine by remember { mutableStateOf<GameEngine?>(null) }
-
-            AnimatedContent(
-                targetState = currentScreen,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(500)) +
-                            slideInVertically(initialOffsetY = { it / 10 }))
-                        .togetherWith(fadeOut(animationSpec = tween(300)))
-                },
-                label = "ScreenTransition"
-            ) { screen ->
-                when (screen) {
-
-                    // 🧍 Pantalla de nombre
-                    "name" -> NameScreen(
-                        onConfirm = { enteredName ->
-                            playerName = if (enteredName.isNotBlank()) enteredName else "Jugador"
-                            val player1 = Player(1, playerName, isAI = false)
-                            val player2 = Player(2, "Luis", isAI = true)
-                            val player3 = Player(3, "María", isAI = true)
-                            engine = GameEngine(listOf(player1, player2, player3))
-                            currentScreen = "menu"
-                        }
-                    )
-
-                    // 🟣 Menú principal
-                    "menu" -> MainMenuScreen(
-                        onStartGame = {
-                            if (engine == null) {
-                                val player1 = Player(1, playerName.ifBlank { "Jugador" }, isAI = false)
-                                val player2 = Player(2, "Luis", isAI = true)
-                                val player3 = Player(3, "María", isAI = true)
-                                engine = GameEngine(listOf(player1, player2, player3))
-                            }
-                            engine?.resetGame()
-                            currentScreen = "game"
-                        },
-                        onShowRules = { currentScreen = "rules" },
-                        onExit = { finish() }
-                    )
-
-                    // 🕹️ Pantalla de juego
-                    "game" -> {
-                        if (engine == null) {
-                            val player1 = Player(1, playerName.ifBlank { "Jugador" }, isAI = false)
-                            val player2 = Player(2, "Luis", isAI = true)
-                            val player3 = Player(3, "María", isAI = true)
-                            engine = GameEngine(listOf(player1, player2, player3))
-                            engine!!.resetGame()
-                        }
-
-                        GameScreenWithVictoryMenu(
-                            engine = engine!!,
-                            onReturnToMenu = { currentScreen = "menu" }
-                        )
-                    }
-
-                    // 📘 Pantalla de reglas
-                    "rules" -> RulesScreen(
-                        onBack = { currentScreen = "menu" }
-                    )
+            MaterialTheme {
+                Surface {
+                    RotaNacionApp()
                 }
             }
         }
     }
 }
 
-/* --------------------------- 🏆 Flujo de victoria --------------------------- */
+/* -------------------------------------------------------------
+   🌍 NAVEGACIÓN PRINCIPAL
+   ------------------------------------------------------------- */
 @Composable
-fun GameScreenWithVictoryMenu(engine: GameEngine, onReturnToMenu: () -> Unit) {
-    var winner by remember { mutableStateOf<com.example.rotanacion.model.Player?>(null) }
-    var showVictoryScreen by remember { mutableStateOf(false) }
+fun RotaNacionApp() {
+    val navController = rememberNavController()
+    val gameViewModel: GameViewModel = viewModel()
 
-    if (showVictoryScreen && winner != null) {
-        VictoryScreen(
-            winner = winner!!,
-            onRestart = {
-                engine.resetGame()
-                showVictoryScreen = false
-                winner = null
-            },
-            onReturnToMenu = {
-                showVictoryScreen = false
-                winner = null
-                onReturnToMenu()
+    NavHost(navController = navController, startDestination = "menu") {
+        // ---------- Menú principal ----------
+        composable("menu") {
+            MainMenuScreen(
+                onStartGame = { navController.navigate("nameEntry") },
+                onShowRules = { navController.navigate("rules") },
+                onExit = { /* Puedes cerrar la app o mostrar un diálogo */ }
+            )
+        }
+
+        // ---------- Pantalla de nombre ----------
+        composable("nameEntry") {
+            NameScreen { playerName ->
+                val players = listOf(
+                    Player(id = 0, name = playerName),
+                    Player(id = 1, name = "IA 1", isAI = true),
+                    Player(id = 2, name = "IA 2", isAI = true),
+                    Player(id = 3, name = "IA 3", isAI = true)
+                )
+                gameViewModel.startNewGame(players)
+                navController.navigate("game")
             }
-        )
-    } else {
-        GameScreenWithVictoryDetection(engine) { winnerFound ->
-            winner = winnerFound
-            showVictoryScreen = true
+        }
+
+        // ---------- Pantalla de reglas ----------
+        composable("rules") {
+            RulesScreen(onBack = { navController.popBackStack() })
+        }
+
+        // ---------- Pantalla de juego ----------
+        composable("game") {
+            GameScreen(viewModel = gameViewModel, navController = navController)
         }
     }
 }
 
-/* ------------------------ 🧩 Detección de victoria ------------------------ */
-@Composable
-fun GameScreenWithVictoryDetection(
-    engine: GameEngine,
-    onVictoryDetected: (com.example.rotanacion.model.Player) -> Unit
-) {
-    var localWinner by remember { mutableStateOf<com.example.rotanacion.model.Player?>(null) }
-
-    GameScreen(engine = engine)
-
-    LaunchedEffect(engine.currentPlayer) {
-        val winner = engine.checkVictory()
-        if (winner != null && winner != localWinner) {
-            localWinner = winner
-            onVictoryDetected(winner)
-        }
-    }
-}
 
 
 
